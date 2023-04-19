@@ -2,7 +2,7 @@ import codecs
 import re
 import os
 import json
-from collections import defaultdict
+from collections import defaultdict, Counter
 import argparse
 
 def addPadding(result, padding, maxRow):    #Emettre un padding dans un vecteur 2D
@@ -95,7 +95,7 @@ def tokenize(path, ar, padding="None", recurrent=False, oov=True, running=False,
         num_word_row = len(words)
         num_word+=num_word_row
         data.append(words)
-        stats.append([num_row, num_word_row])
+        if num_word_row!=0: stats.append(num_word_row)
     if not running: print("Total number of rows: ",num_row,"\nTotal number of words: ",num_word)
 
     result, reseq = sequence(data, tokenizer, padding, recurrent, running, oov)
@@ -104,6 +104,17 @@ def tokenize(path, ar, padding="None", recurrent=False, oov=True, running=False,
 
 def tokenToString(sequence, vocabulary): return [list(vocabulary.keys())
       [list(vocabulary.values()).index(seq)] for seq in sequence]
+
+def getTopN(data, n, vocabulary):
+    flat_list = [num for sublist in data for num in sublist]
+
+    number_counts = Counter(flat_list)
+    top_n = number_counts.most_common()[:n]
+
+    frequencies = [x[1] for x in top_n]
+    labels = tokenToString([x[0] for x in top_n], vocabulary)
+
+    return [[labels[i], frequencies[i]] for i in range(len(top_n))]
 
 def searchSeq(data, sequence):  #Fonction de recherche
     indices = []
@@ -147,21 +158,51 @@ def nextWord(query, sequences, num_words, vocabulary, n):
         return nextWord(query, sequences, num_words-1, vocabulary, n)
     else: return next
 
+
+
 def run(command):
-    inputD = command["input"]
+    if command["cmd"]==0:
+        inputD = command["input"]
 
-    if not os.path.isfile(inputD["path"]):
-        return {"error": "File not found"}
+        if not os.path.isfile(inputD["path"]):
+            return {"error": "File not found"}
 
-    tokenizer = tokenize(inputD["path"], ar=True)
+        tokenizer = tokenize(inputD["path"], ar=True)
+        
+        vocabulary = tokenizer['vocabulary']
+        sequences = tokenizer['sequences']
+
+        query = bytes(inputD["query"], 'utf-8').decode('unicode_escape')
+        result = nextWord(query, sequences, inputD["num"], vocabulary, inputD["filtre"])
+
+        return {"result": result}
     
-    vocabulary = tokenizer['vocabulary']
-    sequences = tokenizer['sequences']
+    elif command["cmd"]==1:
+        inputD = command["input"]
+        if not os.path.isfile(inputD["path"]):
+            return {"error": "File not found"}
+        
+        tokenizer = tokenize(inputD["path"], ar=True)
 
-    query = bytes(inputD["query"], 'utf-8').decode('unicode_escape')
-    result = nextWord(query, sequences, inputD["num"], vocabulary, inputD["filtre"])
+        stats = tokenizer['stats']
+        result = {"stats":stats}
 
-    return {"result": result}
+        return {"result": result}
+    
+    elif command["cmd"]==2:
+        inputD = command["input"]
+        if not os.path.isfile(inputD["path"]):
+            return {"error": "File not found"}
+
+        tokenizer = tokenize(inputD["path"], ar=True)
+        
+        vocabulary = tokenizer['vocabulary']
+        sequences = tokenizer['sequences']
+
+        return getTopN(sequences, inputD["num"], vocabulary)
+    
+    else:
+        return {'Error':'Command not found.'}
 
 
 if __name__ == "__main__":

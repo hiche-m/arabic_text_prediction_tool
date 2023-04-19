@@ -156,7 +156,7 @@ class _HomeState extends State<Home> {
                           PageRouteBuilder(
                             pageBuilder:
                                 (context, animation, secondaryAnimation) =>
-                                    const Settings(),
+                                    Settings(taln: hvm.taln),
                             transitionsBuilder: (context, animation,
                                 secondaryAnimation, child) {
                               var begin = const Offset(1.0, -1.0);
@@ -191,17 +191,41 @@ class _HomeState extends State<Home> {
                     child: Column(
                       children: [
                         Expanded(
-                            child: queryText != ""
-                                ? IconButton(
-                                    onPressed: immmobilize
-                                        ? null
-                                        : () async {
-                                            hvm.generate(queryText);
+                            child:
+                                !generating && !immmobilize && queryText != ""
+                                    ? Tooltip(
+                                        message: 'تحديث الشاشة',
+                                        child: IconButton(
+                                          onPressed: () async {
+                                            await hvm.getNextWord(queryText);
                                             setState(() {});
                                           },
-                                    icon: Icon(
-                                      Icons.auto_fix_normal,
-                                      color: Colors.grey.shade800,
+                                          icon: Icon(
+                                            Icons.refresh,
+                                            color: Colors.grey.shade800,
+                                          ),
+                                        ),
+                                      )
+                                    : Icon(
+                                        Icons.refresh,
+                                        color: Colors.grey.shade600,
+                                      )),
+                        Expanded(
+                            child: queryText != ""
+                                ? Tooltip(
+                                    message:
+                                        'إنشاء جملة بناءً على الكلمة أو التسلسل المقدم',
+                                    child: IconButton(
+                                      onPressed: generating || immmobilize
+                                          ? null
+                                          : () async {
+                                              hvm.generate(queryText);
+                                              setState(() {});
+                                            },
+                                      icon: Icon(
+                                        Icons.auto_fix_normal,
+                                        color: Colors.grey.shade800,
+                                      ),
                                     ),
                                   )
                                 : Icon(
@@ -209,42 +233,48 @@ class _HomeState extends State<Home> {
                                     color: Colors.grey.shade600,
                                   )),
                         Expanded(
-                          child: IconButton(
-                              onPressed: generating || queryText == ""
-                                  ? null
-                                  : () {
-                                      if (queryText != "") {
-                                        hvm.removeWord(queryText);
-                                        setState(() {});
-                                        immmobilize = false;
-                                      }
-                                    },
-                              icon: Icon(
-                                Icons.backspace,
-                                color: generating || queryText == ""
-                                    ? Colors.grey.shade600
-                                    : Colors.grey.shade800,
-                              )),
+                          child: Tooltip(
+                            message: 'حذف آخر كلمة',
+                            child: IconButton(
+                                onPressed: generating || queryText == ""
+                                    ? null
+                                    : () {
+                                        if (queryText != "") {
+                                          hvm.removeWord(queryText);
+                                          setState(() {});
+                                          immmobilize = false;
+                                        }
+                                      },
+                                icon: Icon(
+                                  Icons.backspace,
+                                  color: generating || queryText == ""
+                                      ? Colors.grey.shade600
+                                      : Colors.grey.shade800,
+                                )),
+                          ),
                         ),
                         Expanded(
-                          child: IconButton(
-                              onPressed: generating || queryText == ""
-                                  ? null
-                                  : () {
-                                      if (queryText != "") {
-                                        setState(() {
-                                          queryText = "";
-                                          hvm.resetSuggestions();
-                                          immmobilize = false;
-                                        });
-                                      }
-                                    },
-                              icon: Icon(
-                                Icons.delete,
-                                color: generating || queryText == ""
-                                    ? Colors.grey.shade600
-                                    : Colors.grey.shade800,
-                              )),
+                          child: Tooltip(
+                            message: 'مسح كل الكلمات من الشاشة',
+                            child: IconButton(
+                                onPressed: generating || queryText == ""
+                                    ? null
+                                    : () {
+                                        if (queryText != "") {
+                                          setState(() {
+                                            queryText = "";
+                                            hvm.resetSuggestions();
+                                            immmobilize = false;
+                                          });
+                                        }
+                                      },
+                                icon: Icon(
+                                  Icons.delete,
+                                  color: generating || queryText == ""
+                                      ? Colors.grey.shade600
+                                      : Colors.grey.shade800,
+                                )),
+                          ),
                         ),
                       ],
                     ),
@@ -257,7 +287,7 @@ class _HomeState extends State<Home> {
                         text: TextSpan(
                           children: [
                             TextSpan(
-                              text: "${queryText} ",
+                              text: "$queryText ",
                               style: TextStyle(
                                 color: Colors.grey.shade600,
                                 fontSize: 25,
@@ -282,7 +312,7 @@ class _HomeState extends State<Home> {
                 ],
               ),
             ),
-            if (immmobilize)
+            if (generating || immmobilize)
               const SizedBox()
             else
               SizedBox(
@@ -312,7 +342,7 @@ class _HomeState extends State<Home> {
                               });
                             },
                             child: GestureDetector(
-                              onTap: loading
+                              onTap: generating || loading
                                   ? null
                                   : () async {
                                       queryText +=
